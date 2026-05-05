@@ -57,3 +57,11 @@ def should_flush_text(
     if buffer.endswith(("\n", "\r\n")):
         return True
     return bool(SENTENCE_END_RE.search(buffer.rstrip()))
+
+
+def count_markdown_tables(text: str) -> int:
+    """统计 Markdown 文本中的表格数量（以 | --- | 分隔行为标志）。"""
+    return len(re.findall(r'^\|[-: ]+\|', text, re.MULTILINE))
+
+
+MAX_CARD_TABLES = 5

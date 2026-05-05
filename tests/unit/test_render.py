@@ -164,3 +164,19 @@ def test_footer_still_static_for_failed():
     session = CardSession(conversation_id="c", message_id="m", chat_id="c")
     session.status = "failed"
     assert _render_footer(session) == "已停止"
+
+
+def test_render_card_truncates_tables_over_limit():
+    from hermes_feishu_card.session import CardSession
+    from hermes_feishu_card.render import render_card
+    session = CardSession(conversation_id="c", message_id="m", chat_id="c")
+    session.answer_text = "\n\n".join(
+        [f"Table {i}\n| col |\n| --- |\n| {i} |" for i in range(7)]
+    )
+    session.status = "completed"
+    card = render_card(session)
+    body_text = "".join(
+        el.get("content", "") for el in card["body"]["elements"]
+        if el.get("tag") == "markdown"
+    )
+    assert "超出部分已省略" in body_text

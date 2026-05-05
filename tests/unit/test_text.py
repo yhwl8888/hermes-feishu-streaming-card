@@ -80,3 +80,28 @@ def test_streaming_normalizer_handles_thinking_split_across_chunks():
 def test_normalize_does_not_remove_plain_think_word():
     assert normalize_stream_text("I think so") == "I think so"
     assert normalize_stream_text("I am thinking") == "I am thinking"
+
+
+# —— 表格统计 ————————————————————————————————
+
+def test_count_markdown_tables_zero():
+    from hermes_feishu_card.text import count_markdown_tables
+    assert count_markdown_tables("hello world") == 0
+    assert count_markdown_tables("| name | age |") == 0  # no separator
+
+
+def test_count_markdown_tables_normal():
+    from hermes_feishu_card.text import count_markdown_tables
+    text = "| a | b |\n| --- | --- |\n| 1 | 2 |\n\n| x | y |\n| --- | --- |\n| 3 | 4 |"
+    assert count_markdown_tables(text) == 2
+
+
+def test_count_markdown_tables_seven():
+    from hermes_feishu_card.text import count_markdown_tables
+    text = "\n\n".join([f"| col |\n| --- |\n| {i} |" for i in range(7)])
+    assert count_markdown_tables(text) == 7
+
+
+def test_max_card_tables_constant():
+    from hermes_feishu_card.text import MAX_CARD_TABLES
+    assert MAX_CARD_TABLES == 5

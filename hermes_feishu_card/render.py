@@ -66,6 +66,20 @@ def _render_status(session: CardSession) -> Dict[str, str]:
 
 
 def _render_main_content_elements(main_text: str) -> list[Dict[str, Any]]:
+    import re
+
+    from .text import count_markdown_tables, MAX_CARD_TABLES
+    table_count = count_markdown_tables(main_text)
+    if table_count > MAX_CARD_TABLES:
+        matches = list(re.finditer(r'^\|[-: ]+\|', main_text, re.MULTILINE))
+        cutoff = matches[MAX_CARD_TABLES - 1].end()
+        rest = main_text[cutoff:]
+        next_para = re.search(r'\n\n', rest)
+        if next_para:
+            cutoff += next_para.start()
+        main_text = main_text[:cutoff].rstrip() + (
+            "\n\n> 内容含超过 5 个表格，超出部分已省略。"
+        )
     chunks = _split_text(main_text, MAIN_CONTENT_CHUNK_CHARS)
     elements = []
     for index, chunk in enumerate(chunks):
