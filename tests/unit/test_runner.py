@@ -228,3 +228,48 @@ def test_main_rejects_malformed_named_bot_without_leaking_secret(monkeypatch):
     assert "inactive" in message
     assert "app_secret is required" in message
     assert "sales-secret" not in message
+
+
+def test_has_any_feishu_credentials_detects_profiles():
+    """profiles-only 配置也应被识别为有凭据。"""
+    assert runner._has_any_feishu_credentials(
+        {
+            "profiles": {
+                "default": {
+                    "feishu": {"app_id": "cli_a", "app_secret": "s_a"},
+                }
+            }
+        }
+    ) is True
+
+
+def test_main_uses_boundary_with_profiles_only(monkeypatch):
+    """仅有 profiles、无顶层 feishu/bots 时，仍应走 build_feishu_boundary 路径。"""
+    config = {
+        "server": {"host": "127.0.0.1", "port": 0},
+        "profiles": {
+            "default": {
+                "feishu": {"app_id": "cli_a", "app_secret": "s_a"},
+                "bots": {"default": "default", "items": {}},
+                "bindings": {"chats": {}, "fallback_bot": "default"},
+            },
+        },
+    }
+    captured = {}
+
+    monkeypatch.setattr(runner, "load_config", lambda path: config)
+
+    def fake_create_app(feishu_client, **kwargs):
+        captured["feishu_client"] = feishu_client
+        captured["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr(runner, "create_app", fake_create_app)
+    monkeypatch.setattr(runner.web, "run_app", lambda app, **kwargs: None)
+
+    assert main(["--config", "config.yaml"]) == 0
+
+    # profiles-only → multi-profile path → client 是 dict
+    assert isinstance(captured["feishu_client"], dict)
+    assert "default" in captured["feishu_client"]
+    assert captured["kwargs"]["bot_router"] is not None

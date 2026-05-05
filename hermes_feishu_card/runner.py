@@ -116,7 +116,18 @@ def _has_any_feishu_credentials(config: dict[str, Any]) -> bool:
     if isinstance(feishu, dict) and feishu.get("app_id") and feishu.get("app_secret"):
         return True
 
-    return _has_any_named_bot_credentials(config)
+    if _has_any_named_bot_credentials(config):
+        return True
+
+    profiles = config.get("profiles")
+    if isinstance(profiles, dict):
+        return any(
+            _has_any_feishu_credentials(profile_cfg)
+            for profile_cfg in profiles.values()
+            if isinstance(profile_cfg, dict)
+        )
+
+    return False
 
 
 def _has_any_named_bot_credentials(config: dict[str, Any]) -> bool:
