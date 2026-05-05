@@ -29,12 +29,13 @@ class CardSession:
     model: str = "Unknown"
     context: Dict[str, Any] = field(default_factory=dict)
     duration: float = 0.0
+    _tool_call_count: int = field(default=0)
     thinking_normalizer: StreamingTextNormalizer = field(default_factory=StreamingTextNormalizer)
     answer_normalizer: StreamingTextNormalizer = field(default_factory=StreamingTextNormalizer)
 
     @property
     def tool_count(self) -> int:
-        return len(self.tools)
+        return self._tool_call_count
 
     @property
     def visible_main_text(self) -> str:
@@ -75,6 +76,7 @@ class CardSession:
                 status=status if isinstance(status, str) else "running",
                 detail=detail if isinstance(detail, str) else "",
             )
+            self._tool_call_count += 1
         elif event.event == "message.completed":
             self.status = "completed"
             self.answer_text = normalize_stream_text(str(event.data.get("answer") or self.answer_text))

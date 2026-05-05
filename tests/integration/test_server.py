@@ -796,3 +796,27 @@ async def test_routed_update_failure_redacts_sensitive_exception_text():
     assert "super-secret" not in last_update_error
     assert "Authorization" not in last_update_error
     assert "Bearer" not in last_update_error
+
+
+async def test_session_key_uses_profile_id():
+    from hermes_feishu_card.server import _session_key
+    from hermes_feishu_card.events import SidecarEvent
+    event = SidecarEvent(
+        schema_version="1", event="message.started",
+        conversation_id="c", message_id="m", chat_id="c",
+        platform="feishu", sequence=0, created_at=0.0,
+        data={"profile_id": "work"},
+    )
+    assert _session_key(event) == "work:m"
+
+
+async def test_session_key_no_profile_is_just_message_id():
+    from hermes_feishu_card.server import _session_key
+    from hermes_feishu_card.events import SidecarEvent
+    event = SidecarEvent(
+        schema_version="1", event="message.started",
+        conversation_id="c", message_id="m", chat_id="c",
+        platform="feishu", sequence=0, created_at=0.0,
+        data={},
+    )
+    assert _session_key(event) == "m"

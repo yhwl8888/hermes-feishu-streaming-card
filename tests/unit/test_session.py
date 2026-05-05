@@ -163,3 +163,21 @@ def test_failed_visible_main_text_shows_error():
     assert session.apply(event("message.failed", 2, {"error": "失败原因"}))
     assert session.status == "failed"
     assert session.visible_main_text == "失败原因"
+
+
+def test_tool_count_increments_for_same_tool_id():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+    for i in range(3):
+        e = event("tool.updated", i, {"tool_id": "web_search", "name": "web_search", "status": "running"})
+        session.apply(e)
+    assert session.tool_count == 3  # 实际调用次数
+    assert len(session.tools) == 1  # tools 字典仍去重
+
+
+def test_tool_count_increments_for_different_tool_ids():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+    for i, tid in enumerate(["a", "b", "c"]):
+        e = event("tool.updated", i, {"tool_id": tid, "name": tid, "status": "running"})
+        session.apply(e)
+    assert session.tool_count == 3
+    assert len(session.tools) == 3

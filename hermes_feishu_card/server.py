@@ -89,6 +89,27 @@ async def _health(request: web.Request) -> web.Response:
     process_token = request.app[PROCESS_TOKEN_KEY]
     if process_token:
         response["process_token"] = process_token
+
+    # Multi-profile stats
+    boundary = request.app.get(FEISHU_CLIENT_KEY)
+    if isinstance(boundary, dict):
+        profile_stats = {}
+        for profile_id, factory in boundary.items():
+            profile_sessions = {
+                k: v for k, v in sessions.items() if k.startswith(f"{profile_id}:")
+            }
+            profile_stats[profile_id] = {
+                "active_sessions": len(profile_sessions),
+                "sessions": {
+                    key.replace(f"{profile_id}:", ""): {
+                        "status": s.status,
+                        "last_sequence": s.last_sequence,
+                    }
+                    for key, s in profile_sessions.items()
+                },
+            }
+        response["profiles"] = profile_stats
+
     return web.json_response(response)
 
 
@@ -109,13 +130,25 @@ async def _events(request: web.Request) -> web.Response:
     return response
 
 
+def _session_key(event: SidecarEvent) -> str:
+    """Return the session key for an event.
+
+    When profiles are active, uses composite key profile_id:message_id.
+    Otherwise uses message_id directly (backward compatible).
+    """
+    profile_id = event.data.get("profile_id") if isinstance(event.data, dict) else None
+    if profile_id and str(profile_id).strip():
+        return f"{str(profile_id).strip()}:{event.message_id}"
+    return event.message_id
+
+
 async def _apply_event_locked(request: web.Request, event: SidecarEvent) -> web.Response:
     metrics: SidecarMetrics = request.app[METRICS_KEY]
     sessions: Dict[str, CardSession] = request.app[SESSIONS_KEY]
     feishu_message_ids: Dict[str, str] = request.app[FEISHU_MESSAGE_IDS_KEY]
     message_bot_ids: Dict[str, str] = request.app[MESSAGE_BOT_IDS_KEY]
     last_update_at: Dict[str, float] = request.app[LAST_UPDATE_AT_KEY]
-    session = sessions.get(event.message_id)
+    session = sessions.get(_session_key(event))
 
     if event.event == "message.started":
         if session is not None:
@@ -126,12 +159,12 @@ async def _apply_event_locked(request: web.Request, event: SidecarEvent) -> web.
             message_id=event.message_id,
             chat_id=event.chat_id,
         )
-        sessions[event.message_id] = session
+        sessions[_session_key(event)] = session
         applied = session.apply(event)
         if applied and event.message_id not in feishu_message_ids:
             route = _resolve_route(request, event)
             if route is None:
-                sessions.pop(event.message_id, None)
+                sessions.pop(_session_key(event), None)
                 metrics.events_rejected += 1
                 return web.json_response(
                     {"ok": False, "error": "bot route failed"},
@@ -144,7 +177,7 @@ async def _apply_event_locked(request: web.Request, event: SidecarEvent) -> web.
                 route.bot_id,
             )
             if message_id is None:
-                sessions.pop(event.message_id, None)
+                sessions.pop(_session_key(event), None)
                 metrics.events_rejected += 1
                 return web.json_response(
                     {"ok": False, "error": "feishu send failed"},
@@ -280,6 +313,16 @@ def _resolve_route(request: web.Request, event: SidecarEvent) -> RouteResult | N
     feishu_client = request.app[FEISHU_CLIENT_KEY]
     diagnostics = request.app[ROUTING_DIAGNOSTICS_KEY]
     app_diagnostics = request.app[DIAGNOSTICS_KEY]
+
+    # Multi-profile: select profile-specific factory
+    if isinstance(feishu_client, dict):
+        profile_id = event.data.get("profile_id", "default") if isinstance(event.data, dict) else "default"
+        factory = feishu_client.get(profile_id) or feishu_client.get("default")
+        if factory is None:
+            diagnostics["last_route_error"] = f"no factory for profile {profile_id}"
+            return None
+        feishu_client = factory
+
     if not _is_client_factory(feishu_client):
         diagnostics["last_route"] = {
             "message_id": event.message_id,
@@ -324,6 +367,24 @@ def _coerce_route_result(value: Any) -> RouteResult:
 
 def _client_for_bot(app: web.Application, bot_id: str | None) -> Any:
     feishu_client = app[FEISHU_CLIENT_KEY]
+    # Multi-profile: feishu_client is a dict keyed by profile -> factory
+    if isinstance(feishu_client, dict):
+        if bot_id is None:
+            # Use default profile's default bot
+            factory = feishu_client.get("default")
+            if factory is None:
+                raise RuntimeError("no default profile factory")
+            return factory.get_client("default")
+        # bot_id format: "profile_id:bot_id" or just "bot_id"
+        if ":" in str(bot_id):
+            profile_id, actual_bot_id = str(bot_id).split(":", 1)
+        else:
+            profile_id, actual_bot_id = "default", str(bot_id)
+        factory = feishu_client.get(profile_id)
+        if factory is None:
+            raise RuntimeError(f"no factory for profile {profile_id}")
+        return factory.get_client(actual_bot_id)
+
     if _is_client_factory(feishu_client):
         if bot_id is None:
             raise RuntimeError("bot id missing")
