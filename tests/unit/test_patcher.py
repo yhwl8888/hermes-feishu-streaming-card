@@ -31,7 +31,7 @@ def test_apply_patch_inserts_completion_hook_before_response_return():
 
     assert patcher.COMPLETE_PATCH_BEGIN in patched
     assert 'event_name="message.completed"' in patched
-    assert "if _hfc_card_delivered:" in patched
+    assert "if _hfc_card_delivered and source.platform.value == \"feishu\":" in patched
     assert "        return None\n" in patched
     assert '"model": agent_result.get("model", ""),' in patched
     assert '"context": {' in patched
@@ -67,7 +67,7 @@ def test_apply_patch_upgrades_legacy_completion_hook_block():
     upgraded = patcher.apply_patch(content)
 
     assert "emit_from_hermes_locals_async" in upgraded
-    assert "if _hfc_card_delivered:" in upgraded
+    assert "if _hfc_card_delivered and source.platform.value == \"feishu\":" in upgraded
     assert upgraded.count("emit_from_hermes_locals as _hfc_emit") == 1
 
 
@@ -766,3 +766,26 @@ async def _handle_message_with_agent(message):
 def test_apply_patch_raises_when_no_handler_found():
     with pytest.raises(ValueError, match="safe handler"):
         patcher.apply_patch("def handle(message):\n    return message\n")
+
+
+def test_complete_hook_block_contains_platform_check():
+    """_render_complete_hook_block 生成的代码包含 source.platform.value == 'feishu'"""
+    from hermes_feishu_card.install.patcher import _render_complete_hook_block
+    block = "".join(_render_complete_hook_block("    ", "\n"))
+    assert "source.platform.value == \"feishu\"" in block
+    assert "return None" in block
+
+
+def test_previous_async_complete_hook_block_contains_platform_check():
+    """_render_previous_async_complete_hook_block 生成的代码包含平台判断"""
+    from hermes_feishu_card.install.patcher import _render_previous_async_complete_hook_block
+    block = "".join(_render_previous_async_complete_hook_block("    ", "\n"))
+    assert "source.platform.value == \"feishu\"" in block
+    assert "return None" in block
+
+
+def test_legacy_complete_hook_block_has_no_return_none():
+    """_render_legacy_complete_hook_block 没有 return None（fire-and-forget）"""
+    from hermes_feishu_card.install.patcher import _render_legacy_complete_hook_block
+    block = "".join(_render_legacy_complete_hook_block("    ", "\n"))
+    assert "return None" not in block
