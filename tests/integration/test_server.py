@@ -138,6 +138,60 @@ async def test_health_reports_profile_diagnostics_for_profile_events():
     assert body["profile_diagnostics"]["work"]["last_profile_source"] == "env"
 
 
+async def test_profiled_hook_like_started_and_delta_apply_to_same_session():
+    feishu_client = FakeFeishuClient()
+    app = create_app(feishu_client)
+    server = TestServer(app)
+    test_client = TestClient(server)
+    profile_data = {"profile_id": "default", "profile_source": "fallback_default"}
+    await test_client.start_server()
+    try:
+        started = await test_client.post(
+            "/events",
+            json=event_payload("message.started", 0, profile_data),
+        )
+        delta = await test_client.post(
+            "/events",
+            json=event_payload("answer.delta", 1, {"text": "hello", **profile_data}),
+        )
+        started_body = await started.json()
+        delta_body = await delta.json()
+    finally:
+        await test_client.close()
+
+    assert started.status == 200
+    assert started_body == {"ok": True, "applied": True}
+    assert delta.status == 200
+    assert delta_body == {"ok": True, "applied": True}
+    assert len(feishu_client.sent) == 1
+    assert len(feishu_client.updated) == 1
+
+
+async def test_profile_diagnostics_sanitizes_invalid_profile_keys():
+    feishu_client = FakeFeishuClient()
+    app = create_app(feishu_client)
+    server = TestServer(app)
+    test_client = TestClient(server)
+    await test_client.start_server()
+    try:
+        response = await test_client.post(
+            "/events",
+            json=event_payload(
+                "message.started",
+                0,
+                {"profile_id": "bad:profile/path", "profile_source": "env"},
+            ),
+        )
+        assert response.status == 200
+        health = await test_client.get("/health")
+        body = await health.json()
+    finally:
+        await test_client.close()
+
+    assert "bad:profile/path" not in body["profile_diagnostics"]
+    assert body["profile_diagnostics"]["default"]["events"] == 1
+
+
 async def test_event_lifecycle_sends_then_updates_final_card(client):
     test_client, feishu_client = client
 

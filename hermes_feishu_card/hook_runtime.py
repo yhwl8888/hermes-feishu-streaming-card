@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any
 from urllib import request
@@ -14,6 +15,7 @@ from urllib import request
 DEFAULT_EVENT_URL = "http://127.0.0.1:8765/events"
 DEFAULT_TIMEOUT_SECONDS = 0.8
 TERMINAL_TIMEOUT_SECONDS = 10.0
+PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
 SUPPORTED_RUNTIME_EVENTS = {
     "message.started",
@@ -265,31 +267,39 @@ def build_event(event_name: str, local_vars: dict[str, Any]) -> dict[str, Any] |
 def _event_data(
     event_name: str, local_vars: dict[str, Any], source_obj: Any, message_obj: Any
 ) -> dict[str, Any]:
+    profile_id, profile_source = _profile_identity(local_vars, source_obj, message_obj)
+    data: dict[str, Any] = {
+        "profile_id": profile_id,
+        "profile_source": profile_source,
+    }
     if event_name in {"thinking.delta", "answer.delta"}:
         text = _first_string(local_vars, ("text", "delta", "delta_text", "content"))
         if text is None:
             text = _first_attr_string(message_obj, ("text", "content"))
-        return {"text": text or ""}
+        data["text"] = text or ""
+        return data
     if event_name == "tool.updated":
         tool_id = _first_string(local_vars, ("tool_id", "tool_call_id", "name")) or "tool"
         name = _first_string(local_vars, ("name", "tool_name")) or tool_id
         status = _first_string(local_vars, ("status", "tool_status")) or "running"
         detail = _first_string(local_vars, ("detail", "tool_detail")) or ""
-        return {"tool_id": tool_id, "name": name, "status": status, "detail": detail}
+        data.update({"tool_id": tool_id, "name": name, "status": status, "detail": detail})
+        return data
     if event_name == "message.completed":
         answer = _first_string(local_vars, ("answer", "final_answer", "text", "content")) or ""
-        return {
+        data.update({
             "answer": answer,
             "duration": _completion_duration(local_vars),
             "model": _completion_model(local_vars),
             "tokens": _completion_tokens(local_vars, answer),
             "context": _completion_context(local_vars),
-        }
+        })
+        return data
     if event_name == "message.failed":
         error = _first_string(local_vars, ("error", "exception")) or "消息处理失败"
-        return {"error": error}
+        data["error"] = error
+        return data
     if event_name == "message.started":
-        data: dict[str, Any] = {}
         for source_key, data_key in (
             ("chat_type", "chat_type"),
             ("tenant_key", "tenant_key"),
@@ -298,9 +308,6 @@ def _event_data(
             value = _first_string(local_vars, (source_key,)) or _first_attr_string(message_obj, (source_key,))
             if value:
                 data[data_key] = value
-        profile_id, profile_source = _profile_identity(local_vars, source_obj, message_obj)
-        data["profile_id"] = profile_id
-        data["profile_source"] = profile_source
         return data
     return {}
 
@@ -308,29 +315,42 @@ def _event_data(
 def _profile_identity(local_vars: dict[str, Any], source_obj: Any, message_obj: Any) -> tuple[str, str]:
     env_profile = os.environ.get("HERMES_FEISHU_CARD_PROFILE_ID", "").strip()
     if env_profile:
-        return env_profile, "env"
+        return _safe_profile_identity(env_profile, "env")
     direct = (
         _first_string(local_vars, ("profile_id", "hermes_profile", "profile"))
         or _first_attr_string(source_obj, ("profile_id", "hermes_profile", "profile"))
         or _first_attr_string(message_obj, ("profile_id", "hermes_profile", "profile"))
     )
     if direct:
-        return direct, "locals"
+        return _safe_profile_identity(direct, "locals")
     hermes_home = os.environ.get("HERMES_HOME", "").strip()
     profile = _profile_from_path(hermes_home)
     if profile:
-        return profile, "hermes_home"
+        return _safe_profile_identity(profile, "hermes_home")
     return "default", "fallback_default"
+
+
+def _safe_profile_identity(value: str, source: str) -> tuple[str, str]:
+    profile_id = _safe_profile_id(value)
+    if profile_id == "default" and value.strip() != "default":
+        return profile_id, f"sanitized_{source}"
+    return profile_id, source
+
+
+def _safe_profile_id(value: str) -> str:
+    candidate = value.strip()
+    if PROFILE_ID_PATTERN.fullmatch(candidate):
+        return candidate
+    return "default"
 
 
 def _profile_from_path(path: str) -> str | None:
     if not path:
         return None
     parts = Path(path).expanduser().parts
-    if "profiles" in parts:
-        index = parts.index("profiles")
-        if index + 1 < len(parts):
-            candidate = parts[index + 1].strip()
+    for index in range(len(parts) - 2):
+        if parts[index] == ".hermes" and parts[index + 1] == "profiles":
+            candidate = parts[index + 2].strip()
             if candidate:
                 return candidate
     return None

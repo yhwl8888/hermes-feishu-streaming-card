@@ -4,6 +4,7 @@ import os
 import time
 import asyncio
 import logging
+import re
 from typing import Any, Dict
 
 from aiohttp import web
@@ -31,6 +32,7 @@ UPDATE_MAX_ATTEMPTS = 3
 UPDATE_MIN_INTERVAL_SECONDS = 0.5
 TERMINAL_EVENTS = {"message.completed", "message.failed"}
 DIAGNOSTICS_KEY = web.AppKey("diagnostics", dict)
+PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 logger = logging.getLogger(__name__)
 
 
@@ -142,8 +144,9 @@ def _session_key(event: SidecarEvent) -> str:
     Otherwise uses message_id directly (backward compatible).
     """
     profile_id = event.data.get("profile_id") if isinstance(event.data, dict) else None
-    if profile_id and str(profile_id).strip():
-        return f"{str(profile_id).strip()}:{event.message_id}"
+    profile_id = _safe_profile_id(profile_id)
+    if profile_id != "default" or (isinstance(event.data, dict) and event.data.get("profile_id")):
+        return f"{profile_id}:{event.message_id}"
     return event.message_id
 
 
@@ -253,7 +256,7 @@ async def _apply_event_locked(request: web.Request, event: SidecarEvent) -> tupl
 
 def _record_profile_diagnostics(app: web.Application, event: SidecarEvent) -> None:
     data = event.data if isinstance(event.data, dict) else {}
-    profile_id = str(data.get("profile_id") or "default")
+    profile_id = _safe_profile_id(data.get("profile_id"))
     source = str(data.get("profile_source") or "")
     diagnostics = app[PROFILE_DIAGNOSTICS_KEY].setdefault(
         profile_id,
@@ -262,6 +265,13 @@ def _record_profile_diagnostics(app: web.Application, event: SidecarEvent) -> No
     diagnostics["events"] += 1
     diagnostics["last_profile_source"] = source
     diagnostics["last_message_id"] = event.message_id
+
+
+def _safe_profile_id(value: Any) -> str:
+    candidate = str(value or "").strip()
+    if PROFILE_ID_PATTERN.fullmatch(candidate):
+        return candidate
+    return "default"
 
 
 def _render_session_card(request: web.Request, session: CardSession) -> dict[str, Any]:

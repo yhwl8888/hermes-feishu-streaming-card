@@ -171,7 +171,11 @@ def test_build_event_extracts_nested_message_object():
     assert payload["chat_id"] == "oc_object"
     assert payload["message_id"] == "msg_object"
     assert payload["conversation_id"] == "oc_object"
-    assert payload["data"] == {"text": "对象文本"}
+    assert payload["data"] == {
+        "profile_id": "default",
+        "profile_source": "fallback_default",
+        "text": "对象文本",
+    }
 
 
 def test_build_completed_event_preserves_duration_and_tokens():
@@ -189,6 +193,8 @@ def test_build_completed_event_preserves_duration_and_tokens():
     )
 
     assert payload["data"] == {
+        "profile_id": "default",
+        "profile_source": "fallback_default",
         "answer": "最终答案",
         "duration": 2.75,
         "model": "MiniMax M2.7",
@@ -535,7 +541,11 @@ def test_build_event_skips_message_attributes_that_raise():
     assert payload["chat_id"] == "oc_direct"
     assert payload["conversation_id"] == "conv_direct"
     assert payload["message_id"].startswith("hfc_")
-    assert payload["data"] == {"text": ""}
+    assert payload["data"] == {
+        "profile_id": "default",
+        "profile_source": "fallback_default",
+        "text": "",
+    }
 
 
 def test_reset_runtime_state_clears_fallback_cache(monkeypatch):
@@ -620,7 +630,11 @@ async def test_emit_from_hermes_locals_threadsafe_schedules_on_running_loop(monk
     assert url == "http://sidecar.test/events"
     assert payload["event"] == "answer.delta"
     assert payload["message_id"] == "msg_1"
-    assert payload["data"] == {"text": "hello"}
+    assert payload["data"] == {
+        "profile_id": "default",
+        "profile_source": "fallback_default",
+        "text": "hello",
+    }
     assert timeout == 0.8
 
 
@@ -664,6 +678,8 @@ def test_emit_from_hermes_locals_threadsafe_uses_explicit_loop_from_sync_call(
     _url, payload, _timeout = sender.payloads[0]
     assert payload["event"] == "tool.updated"
     assert payload["data"] == {
+        "profile_id": "default",
+        "profile_source": "fallback_default",
         "tool_id": "tool_1",
         "name": "search",
         "status": "completed",
@@ -886,3 +902,40 @@ def test_build_event_profile_id_uses_hermes_home(monkeypatch):
 
     assert payload["data"]["profile_id"] == "sales"
     assert payload["data"]["profile_source"] == "hermes_home"
+
+
+@pytest.mark.parametrize("event_name", ["answer.delta", "thinking.delta"])
+def test_build_delta_events_include_profile_identity(monkeypatch, event_name):
+    monkeypatch.setenv("HERMES_FEISHU_CARD_PROFILE_ID", "work")
+
+    payload = hook_runtime.build_event(
+        event_name,
+        {"chat_id": "oc_1", "message_id": "m_1", "text": "hello"},
+    )
+
+    assert payload["data"]["profile_id"] == "work"
+    assert payload["data"]["profile_source"] == "env"
+
+
+def test_build_event_profile_id_sanitizes_env(monkeypatch):
+    monkeypatch.setenv("HERMES_FEISHU_CARD_PROFILE_ID", "bad:profile/path")
+
+    payload = hook_runtime.build_event(
+        "message.started",
+        {"chat_id": "oc_1", "message_id": "m_1"},
+    )
+
+    assert payload["data"]["profile_id"] == "default"
+    assert payload["data"]["profile_source"] == "sanitized_env"
+
+
+def test_build_event_profile_id_ignores_unrelated_profiles_path(monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", "/tmp/profiles/not-hermes")
+
+    payload = hook_runtime.build_event(
+        "message.started",
+        {"chat_id": "oc_1", "message_id": "m_1"},
+    )
+
+    assert payload["data"]["profile_id"] == "default"
+    assert payload["data"]["profile_source"] == "fallback_default"
