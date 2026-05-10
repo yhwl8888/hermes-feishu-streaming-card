@@ -11,7 +11,7 @@ def read_doc(path: str) -> str:
 def test_readme_documents_sidecar_only_and_supported_hermes_version():
     readme = read_doc("README.md")
 
-    assert "V3.3.0" in readme
+    assert "V3.4.0" in readme
     assert "[English](README.en.md)" in readme
     assert "docs/assets/readme-cover.png" in readme
     assert "sidecar-only" in readme.lower()
@@ -40,6 +40,18 @@ def test_readme_documents_v340_hermes_compatibility():
     assert "Hermes 0.13.0" in readme
     assert "旧版本" in readme
     assert "hook_strategy" in readme
+    assert "gateway_run_013_plus" in readme
+    assert "legacy_gateway_run" in readme
+    assert "compatibility" in readme
+    assert "anchor" in readme or "anchors" in readme
+    assert "重新安装 hook" in readme
+    assert "install --hermes-dir" in readme
+    assert "issue #23" in readme
+    assert "多 profile / multi bot" in readme
+    assert "per-bot/profile title" in readme
+    assert "cron final cards" in readme
+    assert "attachment summaries + native media delivery" in readme
+    assert "reply card context" in readme
 
 
 def test_english_readme_documents_v340_hermes_compatibility():
@@ -49,6 +61,18 @@ def test_english_readme_documents_v340_hermes_compatibility():
     assert "Hermes 0.13.0" in readme
     assert "older Hermes" in readme
     assert "hook_strategy" in readme
+    assert "gateway_run_013_plus" in readme
+    assert "legacy_gateway_run" in readme
+    assert "compatibility" in readme
+    assert "anchor" in readme or "anchors" in readme
+    assert "Reinstall the hook" in readme
+    assert "install --hermes-dir" in readme
+    assert "issue #23" in readme
+    assert "Multi-profile / multi-bot" in readme
+    assert "per-bot/profile title" in readme
+    assert "cron final cards" in readme
+    assert "attachment summaries + native media delivery" in readme
+    assert "reply card context" in readme
 
 
 def test_english_readme_and_docs_are_linked():
@@ -73,9 +97,11 @@ def test_english_readme_and_docs_are_linked():
     assert "display.platforms.feishu.streaming" in english_readme
     assert "Do not treat `display.show_reasoning`" in english_readme
     assert "thinking.delta" in english_readme
-    assert "425 passed" in english_readme
     assert "Multi-bot" in english_readme
     assert "group chat" in english_readme
+    assert "pytest" in english_readme
+    assert "425 passed" not in english_readme
+    assert "398 passed" not in english_readme
 
     for name in expected_docs:
         zh_path = f"docs/{name}.md"
@@ -205,8 +231,68 @@ def test_docs_describe_hermes_detection_diagnostics():
     assert "version_source" in docs
     assert "minimum_supported_version" in docs
     assert "run_py_exists" in docs
+    assert "hook_strategy" in docs
+    assert "compatibility" in docs
+    assert "anchor" in docs or "anchors" in docs
     assert "reason" in docs
     assert "- [x] 增加安装前 Hermes 版本展示和更友好的错误提示。" in docs
+
+
+def test_migration_docs_describe_v340_upgrade_commands_and_profile_id():
+    zh = read_doc("docs/migration.md")
+    en = read_doc("docs/migration.en.md")
+
+    for doc in (zh, en):
+        assert "V3.4.0" in doc
+        assert "python3 -m hermes_feishu_card.cli stop --config ~/.hermes_feishu_card/config.yaml" in doc
+        assert 'pip install -e ".[test]" --upgrade' in doc
+        assert (
+            "python3 -m hermes_feishu_card.cli doctor --config ~/.hermes_feishu_card/config.yaml "
+            "--hermes-dir ~/.hermes/hermes-agent"
+        ) in doc
+        assert "python3 -m hermes_feishu_card.cli install --hermes-dir ~/.hermes/hermes-agent --yes" in doc
+        assert "python3 -m hermes_feishu_card.cli start --config ~/.hermes_feishu_card/config.yaml" in doc
+        assert "HERMES_FEISHU_CARD_PROFILE_ID" in doc
+
+
+def test_changelog_documents_v340_release_notes():
+    changelog = read_doc("CHANGELOG.md")
+
+    assert "## V3.4.0 — 2026-05-10" in changelog
+    assert "Hermes 0.13+" in changelog
+    assert "gateway_run_013_plus" in changelog
+    assert "legacy_gateway_run" in changelog
+    assert "Per-bot/profile titles" in changelog
+    assert "Cron final card delivery" in changelog
+    assert "Attachment summaries with native media delivery" in changelog
+    assert "Card reply context" in changelog
+    assert "issue #23" in changelog
+
+
+def test_config_example_documents_profile_and_bot_card_titles():
+    config = read_doc("config.yaml.example")
+
+    assert "profiles.<id>.card.title" in config
+    assert "bots.items.<id>.card.title" in config
+    assert "bot title wins over profile title" in config
+    assert "title: Sales Bot" in config
+    assert "title: Default Profile" in config
+    assert "title: Work Bot" in config
+    assert "title: Work Profile" in config
+
+
+def test_testing_docs_describe_v340_doctor_output_without_stale_counts():
+    zh = read_doc("docs/testing.md")
+    en = read_doc("docs/testing.en.md")
+
+    for doc in (zh, en):
+        assert "hook_strategy" in doc
+        assert "compatibility" in doc
+        assert "anchor" in doc or "anchors" in doc
+        assert "gateway_run_013_plus" in doc
+        assert "legacy_gateway_run" in doc
+        assert "425 passed" not in doc
+        assert "398 passed" not in doc
 
 
 def test_legacy_handoff_docs_do_not_claim_active_cardkit_completion():
@@ -282,7 +368,7 @@ def test_docs_describe_release_readiness_boundaries():
     )
 
     assert "docs/release-readiness.md" in docs
-    assert "3.3.0" in docs
+    assert "3.4.0" in docs
     assert "python3 -m pytest -q" in docs
     assert "真实 Hermes Gateway" in docs
     assert "真实飞书应用" in docs

@@ -107,10 +107,10 @@ python3 -m hermes_feishu_card.cli doctor --config config.yaml.example --hermes-d
 - 同一张飞书卡片连续更新到 16k 中文字符。
 - 真实 Hermes 目录 `restore -> install` 循环，最终保持已安装状态。
 
-最近一次全量自动化回归命令：
+全量自动化回归命令：
 
 ```bash
 python3 -m pytest -q -p no:cacheprovider
 ```
 
-结果：**398 passed**。
+结果以本地或 CI 当次输出为准，不在文档中写死 passed 数量。

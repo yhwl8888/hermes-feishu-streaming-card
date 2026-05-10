@@ -107,10 +107,10 @@ This round of real integration covered:
 - One Feishu card continuously updated to 16k Chinese characters.
 - Real Hermes directory `restore -> install` loop, ending in installed state.
 
-Latest full automated regression:
+Full automated regression:
 
 ```bash
 python3 -m pytest -q -p no:cacheprovider
 ```
 
-Result: **398 passed**.
+Use the local or CI output from that run as the result; this document does not pin a passed count.

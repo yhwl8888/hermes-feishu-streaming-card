@@ -230,7 +230,7 @@ Hermes hook 将 `message.started` / `thinking.delta` / `answer.delta` / `tool.up
 ## 测试
 
 ```bash
-python3 -m pytest -q    # 全量测试：425 passed, 0 failed（GitHub Actions Python 3.9/3.12 矩阵通过）
+python3 -m pytest -q    # 运行全量自动化回归
 ```
 
 验收覆盖：真实 Feishu E2E 主链路验证通过，真实 Hermes Gateway E2E、真实飞书应用卡片验证、16k 长卡压力测试、`doctor → install → restore` 闭环、多 Profile 路由、DeepSeek 标签过滤。Feishu CardKit HTTP client 已实现，并通过 mock Feishu server 和真实飞书 smoke 验证。
@@ -258,4 +258,4 @@ MIT License，详见 [LICENSE](LICENSE)。
 
 ## 安全说明
 
-不要把 App Secret、tenant token、真实 chat_id 提交到仓库。效果图仅用于展示 V3.3.0 卡片效果，生产凭据保存在本机配置或环境变量中。
+不要把 App Secret、tenant token、真实 chat_id 提交到仓库。效果图仅用于展示卡片效果，生产凭据保存在本机配置或环境变量中。

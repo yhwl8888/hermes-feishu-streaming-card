@@ -230,7 +230,7 @@ Full changelog: [CHANGELOG.md](CHANGELOG.md).
 ## Testing
 
 ```bash
-python3 -m pytest -q    # 425 passed, 0 failed (GitHub Actions Python 3.9/3.12 matrix)
+python3 -m pytest -q    # run the full automated regression suite
 ```
 
 Coverage: real Hermes Gateway E2E, real Feishu app card verification, 16k long-card stress test, `doctor → install → restore` loop, multi-profile routing, DeepSeek tag filtering.
@@ -258,4 +258,4 @@ Thanks to these contributors for improving the project:
 
 ## Security
 
-Do not commit App Secret, tenant token, or real chat_id. Screenshots demonstrate V3.3.0 card rendering only. Production credentials belong in local config or environment variables.
+Do not commit App Secret, tenant token, or real chat_id. Screenshots demonstrate card rendering only. Production credentials belong in local config or environment variables.

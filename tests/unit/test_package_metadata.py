@@ -18,6 +18,7 @@ def test_console_entrypoint_target_exists():
 def test_pyproject_has_open_source_package_metadata():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
+    assert 'version = "3.4.0"' in pyproject
     assert 'readme = "README.md"' in pyproject
     assert 'keywords = ["Hermes", "Feishu", "Lark", "streaming-card", "sidecar"]' in pyproject
     assert 'classifiers = [' in pyproject
