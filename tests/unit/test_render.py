@@ -54,6 +54,50 @@ def test_render_completed_card_shows_attachment_summary():
     assert "附件：report.pdf" in str(card)
 
 
+def test_render_completed_card_places_attachment_summary_before_tools():
+    session = CardSession(conversation_id="c", message_id="m", chat_id="oc")
+    session.status = "completed"
+    session.answer_text = "正文"
+    session.attachments = [{"kind": "file", "name": "report.pdf", "summary": "report.pdf"}]
+
+    card = render_card(session)
+
+    element_ids = [element.get("element_id") for element in card["body"]["elements"]]
+    assert element_ids.index("attachment_summary") < element_ids.index("tool_summary")
+
+
+def test_render_completed_card_shows_at_most_eight_attachments():
+    session = CardSession(conversation_id="c", message_id="m", chat_id="oc")
+    session.status = "completed"
+    session.answer_text = "正文"
+    session.attachments = [
+        {"kind": "file", "name": f"file-{index}.txt", "summary": f"file-{index}.txt"}
+        for index in range(10)
+    ]
+
+    card = render_card(session)
+
+    attachment_element = next(
+        element
+        for element in card["body"]["elements"]
+        if element.get("element_id") == "attachment_summary"
+    )
+    assert "file-7.txt" in attachment_element["content"]
+    assert "file-8.txt" not in attachment_element["content"]
+    assert "file-9.txt" not in attachment_element["content"]
+
+
+def test_render_completed_card_without_attachments_has_no_attachment_summary():
+    session = CardSession(conversation_id="c", message_id="m", chat_id="oc")
+    session.status = "completed"
+    session.answer_text = "正文"
+
+    card = render_card(session)
+
+    element_ids = [element.get("element_id") for element in card["body"]["elements"]]
+    assert "attachment_summary" not in element_ids
+
+
 def test_render_long_main_content_splits_markdown_elements_without_truncating():
     session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
     session.answer_text = "甲" * 2600 + "乙" * 2600

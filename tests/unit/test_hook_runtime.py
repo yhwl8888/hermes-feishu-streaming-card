@@ -238,6 +238,36 @@ def test_completed_event_extracts_attachment_summaries_from_response_field():
     } in payload["data"]["attachments"]
 
 
+def test_completed_event_does_not_extract_url_paths_as_local_attachments():
+    payload = hook_runtime.build_event(
+        "message.completed",
+        {
+            "chat_id": "oc_1",
+            "message_id": "m_1",
+            "answer": "参考 https://example.com/tmp/chart.png 和 /tmp/local.png",
+        },
+    )
+
+    attachments = payload["data"]["attachments"]
+    assert {"kind": "image", "name": "local.png", "summary": "local.png"} in attachments
+    assert {"kind": "image", "name": "chart.png", "summary": "chart.png"} not in attachments
+
+
+def test_completed_event_strips_trailing_attachment_punctuation_and_deduplicates():
+    payload = hook_runtime.build_event(
+        "message.completed",
+        {
+            "chat_id": "oc_1",
+            "message_id": "m_1",
+            "answer": "附件 MEDIA:/tmp/report.pdf, 还有 MEDIA:/tmp/report.pdf）",
+        },
+    )
+
+    assert payload["data"]["attachments"] == [
+        {"kind": "file", "name": "report.pdf", "summary": "report.pdf"}
+    ]
+
+
 def test_build_completed_event_uses_agent_result_token_fallbacks():
     payload = hook_runtime.build_event(
         "message.completed",

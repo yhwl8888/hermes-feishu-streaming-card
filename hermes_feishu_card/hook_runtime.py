@@ -18,8 +18,9 @@ TERMINAL_TIMEOUT_SECONDS = 10.0
 PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 MEDIA_RE = re.compile(r"MEDIA:([^\s\]]+)")
 LOCAL_FILE_RE = re.compile(
-    r"(?<![\w/])(/[^\s`]+\.(?:png|jpg|jpeg|webp|gif|pdf|txt|md|csv|xlsx|docx|mp3|wav|ogg|mp4|mov|webm))"
+    r"(?<![:\w/])(/[^\s`]+\.(?:png|jpg|jpeg|webp|gif|pdf|txt|md|csv|xlsx|docx|mp3|wav|ogg|mp4|mov|webm))"
 )
+ATTACHMENT_TRAILING_PUNCTUATION = ",.;:)]}，。；：）】}"
 
 SUPPORTED_RUNTIME_EVENTS = {
     "message.started",
@@ -375,12 +376,16 @@ def _extract_attachments(text: str) -> list[dict[str, str]]:
     seen = set()
     attachments = []
     for raw in list(MEDIA_RE.findall(text or "")) + list(LOCAL_FILE_RE.findall(text or "")):
-        name = Path(raw).name.strip()
+        name = _attachment_name(raw)
         if not name or name in seen:
             continue
         seen.add(name)
         attachments.append({"kind": _attachment_kind(name), "name": name, "summary": name})
     return attachments
+
+
+def _attachment_name(raw: str) -> str:
+    return Path(raw.strip().rstrip(ATTACHMENT_TRAILING_PUNCTUATION)).name.strip()
 
 
 def _attachment_kind(name: str) -> str:
