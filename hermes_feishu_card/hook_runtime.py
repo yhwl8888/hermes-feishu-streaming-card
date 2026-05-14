@@ -310,7 +310,7 @@ def _build_event(
     created_at_lifecycle_token = _created_at_lifecycle_token(created_at_value)
     fallback_key = (conversation_id, chat_id)
     explicit_message_id = _first_string(
-        local_vars, ("message_id", "msg_id")
+        local_vars, ("message_id", "msg_id", "event_message_id")
     ) or _first_attr_string(
         message_obj, ("message_id", "msg_id")
     ) or _first_attr_string(
@@ -830,6 +830,15 @@ def _preview_fallback_message_id(
     chat_id: str,
     created_at_lifecycle_token: str | None,
 ) -> str:
+    if created_at_lifecycle_token is not None:
+        token_key = (key[0], key[1], created_at_lifecycle_token)
+        cached = _ACTIVE_FALLBACK_MESSAGE_IDS.get(token_key)
+        if cached is not None:
+            return cached
+    else:
+        current_key = _CURRENT_FALLBACK_KEYS.get(key)
+        if current_key in _ACTIVE_FALLBACK_MESSAGE_IDS:
+            return _ACTIVE_FALLBACK_MESSAGE_IDS[current_key]
     lifecycle_count = _FALLBACK_LIFECYCLE_COUNTS.get(key, 0)
     lifecycle_token = f"active:{lifecycle_count}"
     if created_at_lifecycle_token is not None:
