@@ -194,6 +194,19 @@ def test_build_event_uses_gateway_event_message_id_for_card_lifecycle():
     assert second_completed["message_id"] == "om_second"
 
 
+def test_build_event_uses_event_message_id_from_hermes_run_agent_started_hook():
+    payload = hook_runtime.build_event(
+        "message.started",
+        {
+            "source": SourceObject(),
+            "event_message_id": "om_hermes_20260507",
+            "session_id": "session_source",
+        },
+    )
+
+    assert payload["message_id"] == "om_hermes_20260507"
+
+
 def test_build_event_explicit_started_keeps_active_fallback_identity():
     local_vars = {"chat_id": "oc_abc", "conversation_id": "conv_abc"}
 
@@ -506,6 +519,20 @@ def test_build_event_preview_does_not_advance_sequence_or_retire_fallback():
     assert completed is not None
     assert completed["message_id"] == started["message_id"]
     assert completed["sequence"] == 1
+
+
+def test_preview_fallback_matches_active_fallback_without_created_at():
+    key = ("conv_abc", "oc_abc")
+    cache_key = hook_runtime._new_fallback_cache_key(key, None)
+
+    active = hook_runtime._create_active_fallback_message_id(
+        key, cache_key, "conv_abc", "oc_abc", None
+    )
+    preview = hook_runtime._preview_fallback_message_id(
+        key, "conv_abc", "oc_abc", None
+    )
+
+    assert preview == active
 
 
 def test_attachment_guard_uses_preview_before_terminal_emit_retires_fallback():
