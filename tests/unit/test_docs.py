@@ -171,6 +171,15 @@ def test_readme_documents_one_line_install_and_release_packages():
     assert "${NAME}-windows.zip" in workflow
 
 
+def test_v38_release_notes_are_linked():
+    changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+    release_notes = Path("docs/release-notes-v3.8.0.md")
+
+    assert release_notes.exists()
+    assert "V3.8.0" in changelog
+    assert "docs/release-notes-v3.8.0.md" in changelog
+
+
 def test_english_readme_and_docs_are_linked():
     readme = read_doc("README.md")
     english_readme = read_doc("README.en.md")
