@@ -198,13 +198,18 @@ def test_answer_delta_takes_over_visible_text_before_completion():
 def test_split_think_tags_do_not_leak_across_chunks():
     session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
     assert session.apply(event("thinking.delta", 1, {"text": "<thi"}))
-    assert session.apply(event("thinking.delta", 2, {"text": "nk>先分析</thi"}))
-    assert session.apply(event("thinking.delta", 3, {"text": "nk>结束"}))
+    assert session.apply(event("tool.updated", 2, {"tool_id": "t1", "name": "search", "status": "running"}))
+    assert session.apply(event("thinking.delta", 3, {"text": "nk>先分析</thi"}))
+    assert session.apply(event("thinking.delta", 4, {"text": "nk>结束"}))
     assert session.thinking_text == "先分析结束"
+    reasoning_entries = [item for item in session.timeline.snapshot() if item.kind == "reasoning"]
+    assert len(reasoning_entries) == 1
+    assert reasoning_entries[0].content == "先分析结束"
+    assert session.timeline.snapshot()[0].kind == "tool"
 
-    assert session.apply(event("answer.delta", 4, {"text": "<thi"}))
-    assert session.apply(event("answer.delta", 5, {"text": "nk>答案</thi"}))
-    assert session.apply(event("answer.delta", 6, {"text": "nk>完成"}))
+    assert session.apply(event("answer.delta", 5, {"text": "<thi"}))
+    assert session.apply(event("answer.delta", 6, {"text": "nk>答案</thi"}))
+    assert session.apply(event("answer.delta", 7, {"text": "nk>完成"}))
     assert session.answer_text == "答案完成"
 
 

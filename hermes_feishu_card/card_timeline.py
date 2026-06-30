@@ -21,8 +21,12 @@ class CardTimeline:
     _tool_entry_by_id: dict[str, int] = field(default_factory=dict)
 
     def record_reasoning(self, text: str, replace: bool = False) -> None:
+        if not text and not replace:
+            return
         if replace and self._open_reasoning_index is not None:
             self._entries[self._open_reasoning_index].content = text
+            return
+        if not text:
             return
         if self._open_reasoning_index is None:
             self._reasoning_count += 1

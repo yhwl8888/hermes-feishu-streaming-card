@@ -106,8 +106,9 @@ class CardSession:
                         self.timeline.record_reasoning(text)
             else:
                 delta = self.thinking_normalizer.feed(raw_text)
-                self.thinking_text += delta
-                self.timeline.record_reasoning(delta)
+                if delta:
+                    self.thinking_text += delta
+                    self.timeline.record_reasoning(delta)
         elif event.event == "answer.delta":
             self.timeline.record_answer_started()
             self.answer_text += self.answer_normalizer.feed(str(event.data.get("text", "")))
