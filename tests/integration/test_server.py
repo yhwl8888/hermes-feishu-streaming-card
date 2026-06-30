@@ -1032,7 +1032,7 @@ async def test_burst_updates_are_coalesced_and_reported_in_health(client, monkey
     health = await test_client.get("/health")
     body = await health.json()
     assert body["metrics"]["update_coalesced"] > 0
-    assert body["metrics"]["update_queue_peak"] >= 1
+    assert body["metrics"]["update_queue_peak"] == 1
     assert body["metrics"]["feishu_update_attempts"] < 24
 
 
@@ -1244,6 +1244,35 @@ async def test_terminal_update_failure_is_retried_in_background(client, monkeypa
 
     assert len(feishu_client.updated) == 1
     assert "最终答案" in str(feishu_client.updated[-1][1])
+
+
+async def test_terminal_retry_backoff_does_not_inflate_patch_latency_metric(
+    client, monkeypatch
+):
+    test_client, feishu_client = client
+    feishu_client.update_failures_remaining = sidecar_server.UPDATE_MAX_ATTEMPTS
+    now = [100.0]
+
+    async def fake_sleep(delay):
+        now[0] += delay
+
+    monkeypatch.setattr(sidecar_server.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(sidecar_server.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(flush_module.time, "monotonic", lambda: now[0])
+
+    await test_client.post("/events", json=event_payload("message.started", 0))
+    completed = await test_client.post(
+        "/events",
+        json=event_payload("message.completed", 1, {"answer": "最终答案"}),
+    )
+
+    assert completed.status == 200
+    await wait_for_card_update(feishu_client, "最终答案")
+    health = await test_client.get("/health")
+    metrics = (await health.json())["metrics"]
+    assert metrics["feishu_update_attempts"] == sidecar_server.UPDATE_MAX_ATTEMPTS + 1
+    assert metrics["feishu_update_failures"] == sidecar_server.UPDATE_MAX_ATTEMPTS
+    assert metrics["feishu_update_latency_ms"] < 1000
 
 
 async def test_send_failure_returns_json_error_and_allows_started_retry(client):

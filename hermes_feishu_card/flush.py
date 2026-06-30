@@ -31,12 +31,9 @@ class FlushController:
         if self._task is not None and not self._task.done():
             self._pending = True
             self._pending_terminal = self._pending_terminal or terminal
-            self._pending_count += 1
+            self._pending_count = 1
             self.metrics.update_coalesced += 1
-            self.metrics.update_queue_peak = max(
-                self.metrics.update_queue_peak,
-                self._pending_count,
-            )
+            self.metrics.update_queue_peak = max(self.metrics.update_queue_peak, 1)
             return self._task
         self._pending = False
         self._pending_terminal = terminal
@@ -101,11 +98,7 @@ class FlushController:
                 self._pending = False
                 self._pending_terminal = False
                 self._pending_count = 0
-                started_at = time.monotonic()
                 await render_update()
-                self.metrics.feishu_update_latency_ms = int(
-                    (time.monotonic() - started_at) * 1000
-                )
                 self._last_flush_at = time.monotonic()
                 if terminal or not self._pending:
                     return

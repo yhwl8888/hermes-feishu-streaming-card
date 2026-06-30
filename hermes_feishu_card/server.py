@@ -797,14 +797,19 @@ async def _update_card_for_app(
         if attempt > 0:
             metrics.feishu_update_retries += 1
         metrics.feishu_update_attempts += 1
+        started_at = time.monotonic()
         try:
             await _client_for_bot(app, bot_id).update_card_message(message_id, card)
         except Exception as exc:
+            metrics.feishu_update_latency_ms = int(
+                (time.monotonic() - started_at) * 1000
+            )
             message = _safe_update_error_message(bot_id, exc)
             app[DIAGNOSTICS_KEY]["last_update_error"] = message[:500]
             logger.warning("Feishu card update failed: %s", message)
             metrics.feishu_update_failures += 1
             continue
+        metrics.feishu_update_latency_ms = int((time.monotonic() - started_at) * 1000)
         metrics.feishu_update_successes += 1
         return True
     return False
@@ -1085,4 +1090,3 @@ def _would_apply(session: CardSession, event: SidecarEvent) -> bool:
         and event.sequence > session.last_sequence
         and session.status not in {"completed", "failed"}
     )
-
