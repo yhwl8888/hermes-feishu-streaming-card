@@ -279,3 +279,55 @@ def test_tool_count_increments_for_different_tool_ids():
         session.apply(e)
     assert session.tool_count == 3
     assert len(session.tools) == 3
+
+
+def test_session_timeline_records_reasoning_tool_answer_order():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+
+    assert session.apply(event("thinking.delta", 1, {"text": "先看约束。"}))
+    assert session.apply(event("tool.updated", 2, {"tool_id": "read", "name": "read_file", "status": "running", "detail": "README.md"}))
+    assert session.apply(event("tool.updated", 3, {"tool_id": "read", "name": "read_file", "status": "completed", "detail": "README.md"}))
+    assert session.apply(event("answer.delta", 4, {"text": "最终回答开始"}))
+
+    entries = session.timeline.snapshot()
+    assert [(item.kind, item.title, item.status) for item in entries] == [
+        ("reasoning", "思考 1", "completed"),
+        ("tool", "read_file", "completed"),
+    ]
+    assert entries[0].content == "先看约束。"
+    assert entries[1].detail == "README.md"
+
+
+def test_session_timeline_appends_reasoning_blocks_without_losing_text():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+
+    assert session.apply(event("thinking.delta", 1, {"text": "第一句", "mode": "append_block"}))
+    assert session.apply(event("thinking.delta", 2, {"text": "第二句", "mode": "append_block"}))
+
+    entries = session.timeline.snapshot()
+    assert len(entries) == 1
+    assert entries[0].kind == "reasoning"
+    assert entries[0].content == "第一句\n\n第二句"
+    assert session.thinking_text == "第一句\n\n第二句"
+
+
+def test_session_timeline_replace_mode_replaces_open_reasoning_without_duplication():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+
+    assert session.apply(event("thinking.delta", 1, {"text": "我先看"}))
+    assert session.apply(event("thinking.delta", 2, {"text": "我先看看今天的变更", "mode": "replace"}))
+
+    entries = session.timeline.snapshot()
+    assert len(entries) == 1
+    assert entries[0].content == "我先看看今天的变更"
+    assert session.thinking_text == "我先看看今天的变更"
+
+
+def test_session_timeline_folded_count_reports_hidden_old_entries():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+    for index in range(5):
+        assert session.apply(event("thinking.delta", index * 2 + 1, {"text": f"思考{index}"}))
+        assert session.apply(event("tool.updated", index * 2 + 2, {"tool_id": f"tool-{index}", "name": f"tool_{index}", "status": "completed"}))
+
+    assert session.timeline.folded_count(max_items=3) == 7
+    assert [item.title for item in session.timeline.snapshot(max_items=3)] == ["tool_3", "思考 5", "tool_4"]
