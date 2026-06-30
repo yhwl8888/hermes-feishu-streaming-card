@@ -177,7 +177,16 @@ def test_v38_release_notes_are_linked():
 
     assert release_notes.exists()
     assert "V3.8.0" in changelog
-    assert "docs/release-notes-v3.8.0.md" in changelog
+    assert "[docs/release-notes-v3.8.0.md](docs/release-notes-v3.8.0.md)" in changelog
+
+
+def test_todo_points_to_v38_public_plan_docs():
+    todo = read_doc("TODO.md")
+
+    assert "## 下一版计划：V3.8.0 / V3.8.1 / V3.8.2" in todo
+    assert "[docs/superpowers/specs/2026-06-30-v3-8-design.md](docs/superpowers/specs/2026-06-30-v3-8-design.md)" in todo
+    assert "[docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md](docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md)" in todo
+    assert "docs/roadmap-v3.6.0.md" not in todo
 
 
 def test_english_readme_and_docs_are_linked():

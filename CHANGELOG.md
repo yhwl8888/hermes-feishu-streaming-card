@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.2.0
 
 ## V3.8.0 — 2026-06-30
 
-See also: `docs/release-notes-v3.8.0.md`
+See also: [docs/release-notes-v3.8.0.md](docs/release-notes-v3.8.0.md)
 
 ### Added
 - Separated the primary answer area from the reasoning/tool timeline so the card keeps the final response prominent while auxiliary progress remains readable.

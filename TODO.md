@@ -4,7 +4,7 @@
 
 ## 下一版计划：V3.8.0 / V3.8.1 / V3.8.2
 
-详细路线见 [docs/roadmap-v3.6.0.md](docs/roadmap-v3.6.0.md)。
+详细路线见 [docs/superpowers/specs/2026-06-30-v3-8-design.md](docs/superpowers/specs/2026-06-30-v3-8-design.md) 和 [docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md](docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md)。
 
 ### V3.8.0：卡片体验与流式稳定性（已完成）
 
