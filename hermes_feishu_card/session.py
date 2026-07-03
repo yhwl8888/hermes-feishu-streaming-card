@@ -57,6 +57,8 @@ class CardSession:
     active_interaction: InteractionState | None = None
     delivery_kind: str = "chat"
     reply_to_message_id: str = ""
+    notice_title: str = ""
+    notice_level: str = "info"
     _tool_call_count: int = field(default=0)
     _has_seen_tool_event: bool = False
     _answer_archive_index: int | None = None
@@ -147,6 +149,28 @@ class CardSession:
             self._complete_interaction(event.data)
         elif event.event == "interaction.failed":
             self._fail_interaction(event.data)
+        elif event.event == "system.notice":
+            title = str(event.data.get("title") or "运行提示").strip() or "运行提示"
+            content = normalize_stream_text(
+                str(event.data.get("content") or event.data.get("text") or "")
+            ).strip()
+            level = _notice_level(event.data.get("level"))
+            notice_id = str(event.data.get("notice_id") or "").strip()
+            scope = str(event.data.get("notice_scope") or "session").strip().lower()
+            delivery_kind = event.data.get("delivery_kind")
+            if isinstance(delivery_kind, str) and delivery_kind.strip():
+                self.delivery_kind = delivery_kind.strip()
+            reply_to_message_id = event.data.get("reply_to_message_id")
+            if isinstance(reply_to_message_id, str):
+                self.reply_to_message_id = reply_to_message_id
+            if scope == "independent" or self.delivery_kind == "notice":
+                self.delivery_kind = "notice"
+                self.notice_title = title
+                self.notice_level = level
+                self.answer_text = content or title
+                self.status = "completed"
+                return True
+            self.timeline.record_notice(notice_id, title, level, content)
         elif event.event == "message.completed":
             completed_answer = normalize_stream_text(str(event.data.get("answer") or ""))
             if completed_answer.strip():
@@ -270,6 +294,19 @@ def _interaction_options(value: Any) -> list[InteractionOption]:
         style = str(item.get("style") or item.get("type") or "default").strip() or "default"
         options.append(InteractionOption(label=label, value=option_value, style=style))
     return options
+
+
+def _notice_level(value: Any) -> str:
+    level = str(value or "info").strip().lower()
+    if level in {"success", "warning", "error", "info"}:
+        return level
+    if level in {"warn", "orange"}:
+        return "warning"
+    if level in {"failed", "danger", "red"}:
+        return "error"
+    if level in {"ok", "done", "green"}:
+        return "success"
+    return "info"
 
 
 def _strip_preface_prefix(final: str, preface: str) -> str:

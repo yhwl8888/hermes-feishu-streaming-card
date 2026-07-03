@@ -75,7 +75,10 @@ def render_card(
             primary_text = normalize_stream_text(session.visible_main_text)
     attachment_summary = _render_attachment_summary(session)
     footer = _render_footer(session, footer_fields)
-    header_title = title.strip() if isinstance(title, str) and title.strip() else DEFAULT_TITLE
+    if session.delivery_kind == "notice" and session.notice_title:
+        header_title = session.notice_title
+    else:
+        header_title = title.strip() if isinstance(title, str) and title.strip() else DEFAULT_TITLE
     elements = _render_main_content_elements(primary_text)
     timeline_elements: list[Dict[str, Any]] = []
     if show_reasoning:
@@ -127,6 +130,11 @@ def render_card(
 
 
 def _render_status(session: CardSession) -> Dict[str, str]:
+    if session.delivery_kind == "notice":
+        return {
+            "subtitle": "已完成" if session.status == "completed" else "",
+            "template": _notice_template(session.notice_level),
+        }
     if session.status == "completed":
         return {"subtitle": "已完成", "template": "green"}
     if session.status == "failed":
@@ -328,6 +336,22 @@ def _render_timeline_elements(
                     text_size="x-small",
                 )
             )
+        elif item.kind == "notice":
+            content = _limit_text(
+                normalize_stream_text(item.content),
+                max_tool_result_chars,
+                overflow_label="提示内容过长，已截断",
+            )
+            lines = [f"**{item.title}** · {item.status}"]
+            if content:
+                lines.append(content)
+            panel_elements.extend(
+                _timeline_markdown_elements(
+                    _quote_markdown("\n".join(lines)),
+                    f"auxiliary_timeline_noticeentry_{index}",
+                    text_size="x-small",
+                )
+            )
     if not panel_elements:
         return []
     return [
@@ -396,6 +420,17 @@ def _select_timeline_entries(entries: list[Any], *, max_items: int) -> list[Any]
     selected_indexes = [latest_reasoning_index] + selected_indexes[1:]
     selected_indexes = sorted(dict.fromkeys(selected_indexes))
     return [entries[index] for index in selected_indexes]
+
+
+def _notice_template(level: str) -> str:
+    normalized = str(level or "").strip().lower()
+    if normalized == "success":
+        return "green"
+    if normalized == "warning":
+        return "orange"
+    if normalized == "error":
+        return "red"
+    return "blue"
 
 
 def _render_attachment_summary(session: CardSession) -> str:

@@ -40,6 +40,8 @@ This test starts a real local sidecar process and checks `/health`, `status`, ev
 
 V3.8.7 adds a newer-Hermes compatibility regression: if the first normal message event is `answer.delta`, `thinking.delta`, `tool.updated`, or `message.completed`, the sidecar should create the initial card instead of counting the event as `events_ignored`.
 
+V3.8.8 adds native Hermes system notice cardification regressions: `system.notice` events should enter the session timeline or create standalone notice cards; Feishu adapter `send` / `edit_message` interception should suppress gray native text when the sidecar applies the notice and remain fail-open when the sidecar is unavailable or the notice is unknown.
+
 ## Feishu HTTP Client Tests
 
 ```bash

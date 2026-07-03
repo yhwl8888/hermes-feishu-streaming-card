@@ -40,6 +40,8 @@ python3 -m pytest tests/integration/test_cli_process.py -q
 
 V3.8.7 增加新版 Hermes 兼容回归：如果首个普通消息事件直接是 `answer.delta`、`thinking.delta`、`tool.updated` 或 `message.completed`，sidecar 应创建初始卡片而不是把事件计入 `events_ignored`。
 
+V3.8.8 增加 Hermes 原生系统提示卡片化回归：`system.notice` 事件应能进入 session timeline 或创建独立提示卡片；Feishu adapter 的 `send` / `edit_message` 拦截在 sidecar 可用时抑制灰色原生文本，在不可用或无法识别时保持 fail-open fallback。
+
 ## Feishu HTTP client tests
 
 ```bash

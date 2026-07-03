@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.2.0.html).
 
+## V3.8.8 — 2026-07-03
+
+See also: [docs/release-notes-v3.8.8.md](docs/release-notes-v3.8.8.md)
+
+### Added
+- Added `system.notice` event support for native Hermes runtime/status notices that previously appeared as separate gray Feishu/Lark text messages.
+- Added card/timeline rendering for session-scoped notices and compact standalone notice cards for task-external notices.
+- Added runtime classification for covered Hermes notices: `Working` heartbeats, context-window/auto-compaction notices, automatic session reset notices, skill-loading notices, self-improvement review notices, and context-compression notices.
+
+### Fixed
+- Long-running heartbeat notices now update the same timeline entry via `notice_id` instead of appending repeated entries.
+- Native Feishu adapter `send()` and `edit_message()` wrappers now try notice card delivery first and fall back to Hermes native text/edit paths if the sidecar is unavailable or the notice is not recognized.
+- Fixed an empty slash-command parsing edge case in the Feishu adapter patch path so normal Feishu messages with `get_command() == ""` do not trip command-card installation.
+
+### Tests
+- Added unit and integration coverage for `system.notice` schema parsing, session timeline updates, independent notice cards, compact notice rendering, sidecar card creation, Feishu adapter send interception, independent fallback, and heartbeat edit updates.
+
 ## V3.8.7 — 2026-07-02
 
 See also: [docs/release-notes-v3.8.7.md](docs/release-notes-v3.8.7.md)

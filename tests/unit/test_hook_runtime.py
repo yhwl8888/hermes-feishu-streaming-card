@@ -796,6 +796,183 @@ def test_native_feishu_update_command_result_stays_plain_text():
     assert adapter.text_sent == [("oc_abc", "Update started.", "om_user_update", None)]
 
 
+def test_native_feishu_system_notice_send_posts_sidecar_and_suppresses_text(monkeypatch):
+    posted = []
+
+    async def fake_post_json_ordered_response(url, payload, timeout):
+        posted.append((url, payload, timeout))
+        return {"ok": True, "applied": True}
+
+    monkeypatch.setenv("HERMES_FEISHU_CARD_EVENT_URL", "http://127.0.0.1:8765/events")
+    monkeypatch.setattr(
+        hook_runtime,
+        "_post_json_ordered_response",
+        fake_post_json_ordered_response,
+    )
+
+    class DummyFeishuAdapter:
+        name = "feishu"
+
+        def __init__(self):
+            self._client = object()
+            self.text_sent = []
+
+        async def send(self, chat_id, content, reply_to=None, metadata=None):
+            self.text_sent.append((chat_id, content, reply_to, metadata))
+            return SimpleNamespace(success=True, message_id="om_native_text")
+
+    adapter = DummyFeishuAdapter()
+    runner = SimpleNamespace(adapters={"feishu": adapter})
+    event = SimpleNamespace(
+        source=SimpleNamespace(platform="feishu", chat_id="oc_abc"),
+        text="查一下广州明天天气",
+        message_id="om_user_weather",
+        get_command=lambda: "",
+    )
+    hook_runtime.install_feishu_command_card_adapter_methods(runner, event=event)
+
+    async def run():
+        return await adapter.send(
+            "oc_abc",
+            "ℹ️ Codex gpt-5.5 caps context at 272K, so auto-compaction was raised to 85%.",
+            reply_to="om_user_weather",
+            metadata={"reply_to_message_id": "om_user_weather"},
+        )
+
+    result = asyncio.run(run())
+
+    assert result.success is True
+    assert result.message_id == "om_user_weather"
+    assert adapter.text_sent == []
+    assert len(posted) == 1
+    payload = posted[0][1]
+    assert payload["event"] == "system.notice"
+    assert payload["message_id"] == "om_user_weather"
+    assert payload["data"]["title"] == "上下文窗口提示"
+    assert payload["data"]["notice_scope"] == "session"
+    assert "auto-compaction" in payload["data"]["content"]
+
+
+def test_native_feishu_system_notice_retries_as_independent_card_when_current_session_done(monkeypatch):
+    posted = []
+
+    async def fake_post_json_ordered_response(url, payload, timeout):
+        posted.append(payload)
+        if len(posted) == 1:
+            return {"ok": True, "applied": False}
+        return {"ok": True, "applied": True}
+
+    monkeypatch.setattr(
+        hook_runtime,
+        "_post_json_ordered_response",
+        fake_post_json_ordered_response,
+    )
+
+    class DummyFeishuAdapter:
+        name = "feishu"
+
+        def __init__(self):
+            self._client = object()
+            self.text_sent = []
+
+        async def send(self, chat_id, content, reply_to=None, metadata=None):
+            self.text_sent.append(content)
+            return SimpleNamespace(success=True, message_id="om_native_text")
+
+    adapter = DummyFeishuAdapter()
+    runner = SimpleNamespace(adapters={"feishu": adapter})
+    event = SimpleNamespace(
+        source=SimpleNamespace(platform="feishu", chat_id="oc_abc"),
+        text="查一下广州明天天气",
+        message_id="om_user_weather",
+        get_command=lambda: "",
+    )
+    hook_runtime.install_feishu_command_card_adapter_methods(runner, event=event)
+
+    async def run():
+        return await adapter.send(
+            "oc_abc",
+            "📚 Reading skill hermes-agent",
+            reply_to="om_user_weather",
+        )
+
+    result = asyncio.run(run())
+
+    assert result.success is True
+    assert adapter.text_sent == []
+    assert len(posted) == 2
+    assert posted[0]["message_id"] == "om_user_weather"
+    assert posted[0]["data"]["notice_scope"] == "session"
+    assert posted[1]["message_id"].startswith("notice_")
+    assert posted[1]["data"]["notice_scope"] == "independent"
+    assert posted[1]["data"]["title"] == "技能加载"
+    assert result.message_id == posted[1]["message_id"]
+
+
+def test_native_feishu_system_notice_edit_updates_same_card(monkeypatch):
+    posted = []
+
+    async def fake_post_json_ordered_response(url, payload, timeout):
+        posted.append(payload)
+        return {"ok": True, "applied": True}
+
+    monkeypatch.setattr(
+        hook_runtime,
+        "_post_json_ordered_response",
+        fake_post_json_ordered_response,
+    )
+
+    class DummyFeishuAdapter:
+        name = "feishu"
+
+        def __init__(self):
+            self._client = object()
+            self.text_sent = []
+            self.edited = []
+
+        async def send(self, chat_id, content, reply_to=None, metadata=None):
+            self.text_sent.append(content)
+            return SimpleNamespace(success=True, message_id="om_native_text")
+
+        async def edit_message(self, chat_id, message_id, content, metadata=None):
+            self.edited.append((chat_id, message_id, content, metadata))
+            return SimpleNamespace(success=True, message_id=message_id)
+
+    adapter = DummyFeishuAdapter()
+    runner = SimpleNamespace(adapters={"feishu": adapter})
+    event = SimpleNamespace(
+        source=SimpleNamespace(platform="feishu", chat_id="oc_abc"),
+        text="安装 ripgrep",
+        message_id="om_user_task",
+        get_command=lambda: "",
+    )
+    hook_runtime.install_feishu_command_card_adapter_methods(runner, event=event)
+
+    async def run():
+        sent = await adapter.send(
+            "oc_abc",
+            "⏳ Working — 2 min — iteration 1/90, terminal",
+            reply_to="om_user_task",
+        )
+        edited = await adapter.edit_message(
+            "oc_abc",
+            sent.message_id,
+            "⏳ Working — 3 min — iteration 2/90, terminal",
+        )
+        return sent, edited
+
+    sent, edited = asyncio.run(run())
+
+    assert sent.message_id == "om_user_task"
+    assert edited.message_id == "om_user_task"
+    assert adapter.text_sent == []
+    assert adapter.edited == []
+    assert len(posted) == 2
+    assert posted[0]["message_id"] == posted[1]["message_id"] == "om_user_task"
+    assert posted[0]["data"]["notice_id"] == posted[1]["data"]["notice_id"]
+    assert "iteration 2/90" in posted[1]["data"]["content"]
+
+
 def test_install_feishu_command_card_methods_repairs_stale_install_marker():
     class DummyFeishuAdapter:
         name = "feishu"

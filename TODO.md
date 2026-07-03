@@ -2,7 +2,7 @@
 
 当前 active runtime 是 `hermes_feishu_card/`。legacy adapter、dual mode、旧 `sidecar/`、旧 `patch/` 和 `installer_v2.py` 不是 active runtime，仅保留作历史参考。
 
-## V3.8 系列路线：V3.8.0 / V3.8.1 / V3.8.2 / V3.8.3 / V3.8.4 / V3.8.5 / V3.8.6 / V3.8.7
+## V3.8 系列路线：V3.8.0 / V3.8.1 / V3.8.2 / V3.8.3 / V3.8.4 / V3.8.5 / V3.8.6 / V3.8.7 / V3.8.8
 
 详细路线见 [docs/superpowers/specs/2026-06-30-v3-8-design.md](docs/superpowers/specs/2026-06-30-v3-8-design.md) 和 [docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md](docs/superpowers/plans/2026-06-30-v3-8-card-ux-stability.md)。
 
@@ -71,6 +71,15 @@
 - [x] 将普通消息 delta/tool/completed 首事件纳入 session 创建路径，收到首事件即可发送初始 Feishu/Lark 卡片。
 - [x] 保持既有 `message.started`、interaction、cron completion 和终态诊断逻辑兼容。
 
+### V3.8.8：Hermes 原生系统提示卡片化（已完成）
+
+- [x] 将 Hermes 原生灰色提示归一为 `system.notice` 事件，覆盖 `Working` 心跳、上下文窗口/压缩提示、自动 session reset、skill 加载、自我改进 review 等轻量运行状态。
+- [x] 当前对话运行中的提示优先并入现有飞书卡片的“思考与工具”区域；当前卡片不可更新或任务外提示则以独立小卡片发送。
+- [x] 长运行心跳类提示支持同一 notice 更新，避免每次 heartbeat 都新增一条灰色消息或重复卡片。
+- [x] 保留 sidecar 失败时的原生文本 fallback，不阻断 Hermes 自身发送链路。
+- [x] 补单元/集成测试：事件 schema、session timeline、独立 notice 卡片、Feishu adapter `send` / `edit_message` 拦截与 fallback。
+- [x] 本地 Hermes runtime 安装、Gateway/sidecar 重启、真实 Lark「奥妹」sidecar smoke：独立 notice 卡片和当前会话 notice timeline 均返回 applied；用户确认进入发版流程。
+
 ### V3.8.x 后续维护与扩展面（待办）
 
 - [ ] 卡片内提供“继续”“重试”“取消”等写操作入口，需要单独做权限、幂等和误触发设计。
@@ -81,6 +90,10 @@
 - [ ] 评估卡片 timeline/metrics 的长期兼容边界，并补发布回归清单。
 - [ ] 完全兜住极端 Markdown table 边界：当结构化拆分失败时输出安全折叠提示，避免回退 plain split。
 - [ ] 清理 terminal 后的 closed `FlushController`，并评估更有诊断价值的 queue depth / coalesced backlog 指标。
+- [ ] V3.8.9 候选：按真实使用反馈补充更多 Hermes 原生 notice 分类、去重策略和中英文文案微调。
+- [ ] V3.9 候选：Docker 完整运维体验（镜像内安装、外部 Hermes 目录挂载、doctor 一键诊断、升级流程）。
+- [ ] V3.9 候选：群聊能力（@bot、白名单、会话绑定提示、群内 slash command 行为差异）。
+- [ ] V4.0 候选：卡片交互中台化（slash command、授权请求、对话选项、运行提示统一 action/state 模型）。
 
 ## V3.3.0 (已完成)
 

@@ -13,6 +13,7 @@ class TimelineEntry:
     content: str = ""
     detail: str = ""
     tool_id: str = ""
+    notice_id: str = ""
 
 
 @dataclass
@@ -21,6 +22,7 @@ class CardTimeline:
     _open_reasoning_index: int | None = None
     _reasoning_count: int = 0
     _tool_entry_by_id: dict[str, int] = field(default_factory=dict)
+    _notice_entry_by_id: dict[str, int] = field(default_factory=dict)
 
     @property
     def entry_count(self) -> int:
@@ -63,7 +65,7 @@ class CardTimeline:
                 content=text,
             ),
         )
-        self._reindex_tools()
+        self._reindex_entries()
 
     def record_answer_started(self) -> None:
         self._finish_open_reasoning()
@@ -92,6 +94,37 @@ class CardTimeline:
         )
         self._tool_entry_by_id[tool_id] = len(self._entries) - 1
 
+    def record_notice(
+        self,
+        notice_id: str,
+        title: str,
+        status: str,
+        content: str,
+    ) -> None:
+        if not content and not title:
+            return
+        self._finish_open_reasoning()
+        resolved_id = notice_id.strip() if isinstance(notice_id, str) else ""
+        resolved_title = title.strip() if isinstance(title, str) and title.strip() else "运行提示"
+        resolved_status = status.strip() if isinstance(status, str) and status.strip() else "info"
+        if resolved_id and resolved_id in self._notice_entry_by_id:
+            entry = self._entries[self._notice_entry_by_id[resolved_id]]
+            entry.title = resolved_title
+            entry.status = resolved_status
+            entry.content = content
+            return
+        self._entries.append(
+            TimelineEntry(
+                kind="notice",
+                title=resolved_title,
+                status=resolved_status,
+                content=content,
+                notice_id=resolved_id,
+            )
+        )
+        if resolved_id:
+            self._notice_entry_by_id[resolved_id] = len(self._entries) - 1
+
     def complete(self) -> None:
         self._finish_open_reasoning()
 
@@ -111,9 +144,14 @@ class CardTimeline:
         self._entries[self._open_reasoning_index].status = "completed"
         self._open_reasoning_index = None
 
-    def _reindex_tools(self) -> None:
+    def _reindex_entries(self) -> None:
         self._tool_entry_by_id = {
             entry.tool_id: index
             for index, entry in enumerate(self._entries)
             if entry.kind == "tool" and entry.tool_id
+        }
+        self._notice_entry_by_id = {
+            entry.notice_id: index
+            for index, entry in enumerate(self._entries)
+            if entry.kind == "notice" and entry.notice_id
         }

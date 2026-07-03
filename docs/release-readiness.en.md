@@ -2,7 +2,7 @@
 
 [中文](release-readiness.md) | [English](release-readiness.en.md)
 
-Current package version: `3.8.7`. This release keeps the sidecar-only mainline, builds on V3.8.0 card UX, V3.8.1 high-frequency delta coalescing, V3.8.2 timeline readability, V3.8.3 standalone command cards, V3.8.4 WebSocket-native command cards, V3.8.5 command result cards, and V3.8.6 Docker/Hermes v0.18.0 compatibility, then fixes newer Hermes streams that omit `message.started` before the first delta/tool/completed event.
+Current package version: `3.8.8`. This release keeps the sidecar-only mainline, builds on V3.8.0 card UX, V3.8.1 high-frequency delta coalescing, V3.8.2 timeline readability, V3.8.3 standalone command cards, V3.8.4 WebSocket-native command cards, V3.8.5 command result cards, V3.8.6 Docker/Hermes v0.18.0 compatibility, and V3.8.7 newer-Hermes first-event compatibility, then folds native Hermes runtime notices into cards or compact notice cards.
 
 ## Ready
 
@@ -22,6 +22,7 @@ Current package version: `3.8.7`. This release keeps the sidecar-only mainline, 
 - Thinking/interim assistant messages use complete `append_block` chunks to avoid delta accumulation truncation or missing text.
 - Runtime event sends, sidecar updates, and terminal PATCH calls are ordered/coalesced for the same message id.
 - Newer Hermes streams that begin with `answer.delta`, `thinking.delta`, `tool.updated`, or `message.completed` without `message.started` still create the initial Feishu/Lark card.
+- Native Hermes `Working` heartbeats, context-window/compression notices, automatic session resets, skill loading, and self-improvement reviews are normalized as `system.notice`; session notices prefer the active card timeline, while task-external notices use compact standalone cards.
 - Gateway runtime coalesces high-frequency `thinking.delta` / `answer.delta` events inside the Hermes process, covering V3.8.1 issue #74 and reducing stream-reader thread pressure.
 - Terminal events flush pending deltas for the same message before final card rendering.
 - Feishu-side `/hfc help/status/doctor/monitor` commands return read-only diagnostic cards with hashed context ids.

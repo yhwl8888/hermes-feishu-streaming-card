@@ -41,6 +41,21 @@ def test_parses_interaction_events(event_name):
     assert event.data["interaction_id"] == "approval-1"
 
 
+def test_parses_system_notice_event():
+    payload = valid_payload(event="system.notice")
+    payload["data"] = {
+        "title": "上下文窗口提示",
+        "content": "Codex gpt-5.5 caps context at 272K.",
+        "level": "info",
+        "notice_id": "context-cap",
+    }
+
+    event = SidecarEvent.from_dict(payload)
+
+    assert event.event == "system.notice"
+    assert event.data["notice_id"] == "context-cap"
+
+
 def test_rejects_unknown_event_name():
     with pytest.raises(EventValidationError, match="unknown event"):
         SidecarEvent.from_dict(valid_payload(event="bad.event"))

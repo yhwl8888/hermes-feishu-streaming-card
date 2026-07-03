@@ -656,6 +656,75 @@ def test_render_timeline_styles_reasoning_and_tools_with_compact_hierarchy():
     assert "gh release list" in tool["content"]
 
 
+def test_render_timeline_styles_system_notices_as_compact_status_lines():
+    from hermes_feishu_card.events import SidecarEvent
+
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+    base = {
+        "schema_version": "1",
+        "conversation_id": "chat-1",
+        "message_id": "msg-1",
+        "chat_id": "oc_abc",
+        "platform": "feishu",
+        "created_at": 0.0,
+    }
+    session.apply(
+        SidecarEvent(
+            event="system.notice",
+            sequence=1,
+            data={
+                "title": "上下文窗口提示",
+                "content": "Codex gpt-5.5 caps context at 272K.",
+                "notice_id": "context-cap",
+            },
+            **base,
+        )
+    )
+
+    timeline = next(
+        item
+        for item in render_card(session, timeline_expanded=True)["body"]["elements"]
+        if item.get("element_id") == "auxiliary_timeline"
+    )
+    notice = next(item for item in timeline["elements"] if "上下文窗口提示" in item["content"])
+
+    assert notice["text_size"] == "x-small"
+    assert notice["content"].startswith("> ")
+    assert "Codex gpt-5.5 caps context" in notice["content"]
+
+
+def test_render_independent_notice_card_uses_notice_title_and_status():
+    from hermes_feishu_card.events import SidecarEvent
+
+    session = CardSession(conversation_id="chat-1", message_id="notice-1", chat_id="oc_abc")
+    session.apply(
+        SidecarEvent(
+            schema_version="1",
+            event="system.notice",
+            conversation_id="chat-1",
+            message_id="notice-1",
+            chat_id="oc_abc",
+            platform="feishu",
+            sequence=1,
+            created_at=0.0,
+            data={
+                "title": "技能加载",
+                "content": "Reading skill hermes-agent",
+                "notice_scope": "independent",
+                "level": "info",
+            },
+        )
+    )
+
+    card = render_card(session)
+
+    assert card["header"]["title"]["content"] == "技能加载"
+    assert card["header"]["template"] == "blue"
+    assert card["header"]["subtitle"]["content"] == "已完成"
+    assert "Reading skill hermes-agent" in str(card)
+    assert "生成中" not in str(card)
+
+
 def test_render_rotates_each_preface_from_main_to_timeline():
     from hermes_feishu_card.events import SidecarEvent
 

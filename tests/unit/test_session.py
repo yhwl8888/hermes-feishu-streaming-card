@@ -184,6 +184,66 @@ def test_session_tracks_pending_and_completed_interaction():
     assert session.active_interaction.user_name == "Bailey"
 
 
+def test_system_notice_records_and_updates_timeline_entry():
+    session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
+
+    assert session.apply(
+        event(
+            "system.notice",
+            1,
+            {
+                "title": "运行提示",
+                "content": "Working - 2 min - iteration 1/90, terminal",
+                "notice_id": "heartbeat",
+                "level": "info",
+            },
+        )
+    )
+    assert session.apply(
+        event(
+            "system.notice",
+            2,
+            {
+                "title": "运行提示",
+                "content": "Working - 3 min - iteration 2/90, terminal",
+                "notice_id": "heartbeat",
+                "level": "info",
+            },
+        )
+    )
+
+    entries = [item for item in session.timeline.snapshot() if item.kind == "notice"]
+    assert len(entries) == 1
+    assert entries[0].title == "运行提示"
+    assert entries[0].content == "Working - 3 min - iteration 2/90, terminal"
+    assert session.status == "thinking"
+
+
+def test_independent_system_notice_becomes_completed_notice_card():
+    session = CardSession(conversation_id="chat-1", message_id="notice-1", chat_id="oc_abc")
+
+    assert session.apply(
+        event(
+            "system.notice",
+            1,
+            {
+                "title": "会话已自动重置",
+                "content": "Session automatically reset.",
+                "notice_scope": "independent",
+                "level": "success",
+            },
+            message_id="notice-1",
+        )
+    )
+
+    assert session.delivery_kind == "notice"
+    assert session.notice_title == "会话已自动重置"
+    assert session.notice_level == "success"
+    assert session.status == "completed"
+    assert session.visible_main_text == "Session automatically reset."
+    assert session.timeline.snapshot() == []
+
+
 def test_answer_delta_takes_over_visible_text_before_completion():
     session = CardSession(conversation_id="chat-1", message_id="msg-1", chat_id="oc_abc")
     assert session.apply(event("thinking.delta", 1, {"text": "思考内容。"}))

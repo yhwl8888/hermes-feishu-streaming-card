@@ -854,6 +854,35 @@ async def test_message_event_without_started_creates_initial_card(
     assert metrics["events_ignored"] == 0
 
 
+async def test_independent_system_notice_without_started_sends_notice_card(client):
+    test_client, feishu_client = client
+
+    response = await test_client.post(
+        "/events",
+        json=event_payload(
+            "system.notice",
+            1,
+            {
+                "title": "上下文窗口提示",
+                "content": "Codex gpt-5.5 caps context at 272K.",
+                "notice_scope": "independent",
+                "level": "info",
+            },
+            message_id="notice_context_cap",
+        ),
+    )
+
+    assert response.status == 200
+    assert await response.json() == {"ok": True, "applied": True}
+    assert len(feishu_client.sent) == 1
+    card = feishu_client.sent[0][1]
+    assert card["header"]["title"]["content"] == "上下文窗口提示"
+    assert card["header"]["template"] == "blue"
+    assert "Codex gpt-5.5 caps context at 272K." in str(card)
+    assert "生成中" not in str(card)
+    assert feishu_client.updated == []
+
+
 async def test_cron_completed_event_sends_completed_card_without_started(client):
     test_client, feishu_client = client
 

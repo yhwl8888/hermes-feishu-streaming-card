@@ -11,6 +11,7 @@ SUPPORTED_EVENTS = {
     "answer.delta",
     "message.completed",
     "message.failed",
+    "system.notice",
     "interaction.requested",
     "interaction.completed",
     "interaction.failed",

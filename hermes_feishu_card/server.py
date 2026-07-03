@@ -43,6 +43,7 @@ SESSION_CREATING_EVENTS = {
     "answer.delta",
     "message.completed",
     "message.failed",
+    "system.notice",
     "interaction.requested",
 }
 DIAGNOSTICS_KEY = web.AppKey("diagnostics", dict)
